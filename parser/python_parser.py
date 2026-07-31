@@ -156,7 +156,7 @@ class PythonParser:
         class_docstring = ast.get_docstring(class_node)
         
         class_chunk = CodeChunk(
-            chunk_id=generate_chunk_id(relative_path, "class", class_node.name),
+            chunk_id=generate_chunk_id(relative_path, "class", class_node.name, class_node.lineno),
             file_name=Path(file_path).name,
             file_path=relative_path,
             language="python",
@@ -220,7 +220,7 @@ class PythonParser:
             chunk_type = "method" if class_name else "function"
             
             chunk = CodeChunk(
-                chunk_id=generate_chunk_id(relative_path, chunk_type, func_node.name),
+                chunk_id=generate_chunk_id(relative_path, chunk_type, func_node.name, func_node.lineno),
                 file_name=Path(file_path).name,
                 file_path=relative_path,
                 language="python",

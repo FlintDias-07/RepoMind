@@ -88,6 +88,12 @@ def test_chromadb_indexes_chunks_and_blocks_duplicates(tmp_path):
     assert repeat.duplicate_chunks == 2
     assert vector_service.collection_manager.get_collection().count() == 2
     assert len(fake_model.calls) >= 1
+    integrity = vector_service.collection_manager.inspect_integrity()
+    assert integrity.total_vectors == 2
+    assert integrity.duplicate_chunk_ids == []
+    assert integrity.missing_metadata_ids == []
+    assert integrity.empty_document_ids == []
+    assert integrity.empty_embedding_ids == []
 
 
 def test_chromadb_supports_reindex_and_retrieval(tmp_path):

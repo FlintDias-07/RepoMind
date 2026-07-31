@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from threading import RLock
+from time import perf_counter
 from typing import Dict, List, Optional
 import re
-
-import chromadb
-from chromadb.config import Settings
 
 from config import CHROMA_DB_PATH
 from utils import get_logger
@@ -34,22 +33,62 @@ class ChromaManagerConfig:
 class ChromaManager:
     """Own the ChromaDB client and collection creation logic."""
 
+    _client_registry: Dict[str, object] = {}
+    _client_creation_counts: Dict[str, int] = {}
+    _client_creation_times: Dict[str, float] = {}
+    _client_lock = RLock()
+
     def __init__(self, config: Optional[ChromaManagerConfig] = None):
         self.config = config or ChromaManagerConfig()
         self.config.persist_directory = Path(self.config.persist_directory)
         self.config.persist_directory.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger(self.__class__.__name__)
         self._client = None
+        self.client_cache_hit = False
+        self.client_creation_count = 0
+        self.client_creation_time_seconds = 0.0
+
+    @classmethod
+    def reset_client_cache(cls) -> None:
+        with cls._client_lock:
+            cls._client_registry.clear()
+            cls._client_creation_counts.clear()
+            cls._client_creation_times.clear()
+
+    @classmethod
+    def client_cache_size(cls) -> int:
+        return len(cls._client_registry)
 
     def get_client(self):
         """Return a lazily initialized persistent Chroma client."""
 
         if self._client is None:
+            cache_key = str(self.config.persist_directory.resolve())
             try:
-                self._client = chromadb.PersistentClient(
-                    path=str(self.config.persist_directory),
-                    settings=Settings(anonymized_telemetry=False),
-                )
+                import chromadb
+                from chromadb.config import Settings
+
+                with self._client_lock:
+                    cached_client = self._client_registry.get(cache_key)
+                    if cached_client is not None:
+                        self._client = cached_client
+                        self.client_cache_hit = True
+                        self.client_creation_count = self._client_creation_counts.get(cache_key, 0)
+                        self.client_creation_time_seconds = self._client_creation_times.get(cache_key, 0.0)
+                        return self._client
+
+                    started = perf_counter()
+                    self._client = chromadb.PersistentClient(
+                        path=str(self.config.persist_directory),
+                        settings=Settings(anonymized_telemetry=False),
+                    )
+                    creation_time = perf_counter() - started
+                    self._client_registry[cache_key] = self._client
+                    self._client_creation_counts[cache_key] = self._client_creation_counts.get(cache_key, 0) + 1
+                    self._client_creation_times[cache_key] = creation_time
+                    self.client_cache_hit = False
+                    self.client_creation_count = self._client_creation_counts[cache_key]
+                    self.client_creation_time_seconds = creation_time
             except Exception as exc:
                 raise RuntimeError(f"Unable to connect to ChromaDB: {exc}") from exc
         return self._client
@@ -65,6 +104,7 @@ class ChromaManager:
         return client.get_or_create_collection(
             name=collection_name,
             metadata=collection_metadata,
+            embedding_function=None,
         )
 
     def list_collections(self) -> List[str]:

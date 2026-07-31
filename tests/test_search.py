@@ -22,15 +22,36 @@ class FakeSentenceTransformer:
         vectors = []
         for text in texts:
             lowered = text.lower()
-            if "auth" in lowered or "jwt" in lowered or "login" in lowered:
+            if "jwt" in lowered:
+                vectors.append([0.0, 0.0, 1.0])
+            elif "login" in lowered:
+                vectors.append([1.0, 1.0, 0.0])
+            elif "auth" in lowered:
                 vectors.append([1.0, 0.0, 0.0])
             elif "database" in lowered or "config" in lowered:
                 vectors.append([0.0, 1.0, 0.0])
-            elif "user" in lowered:
-                vectors.append([0.0, 0.0, 1.0])
             else:
                 vectors.append([0.3, 0.3, 0.4])
         return vectors
+
+
+class FakeCrossEncoder:
+    def predict(self, pairs):
+        scores = []
+        for query, document in pairs:
+            lowered_query = query.lower()
+            lowered_doc = document.lower()
+            score = 0.2
+            if "jwt" in lowered_query and "jwt" in lowered_doc:
+                score = 0.95
+            elif "database" in lowered_query and "database" in lowered_doc:
+                score = 0.9
+            elif "login" in lowered_query and "login" in lowered_doc:
+                score = 0.92
+            elif "auth" in lowered_query and "auth" in lowered_doc:
+                score = 0.93
+            scores.append(score)
+        return scores
 
 
 def sample_chunks():
@@ -41,7 +62,7 @@ def sample_chunks():
             file_path="src/auth_service.py",
             language="python",
             repository_name="sample-repo",
-            content="def authenticate_user():\n    return validate_jwt(token)",
+            content="def authenticate_user():\n    return check_password(token)",
             chunk_type="function",
             function_name="authenticate_user",
             start_line=1,
@@ -77,7 +98,7 @@ def sample_chunks():
             file_path="src/login_flow.py",
             language="python",
             repository_name="sample-repo",
-            content="def user_login_flow():\n    return authenticate_user()",
+            content="def user_login_flow():\n    return render_login_form()",
             chunk_type="function",
             function_name="user_login_flow",
             start_line=1,
@@ -100,6 +121,7 @@ def vector_service(tmp_path):
         chroma_manager=chroma_manager,
         embedding_manager=embedding_manager,
     )
+    service.hybrid_pipeline.reranker.model = FakeCrossEncoder()
     service.index_chunks(sample_chunks())
     return service
 

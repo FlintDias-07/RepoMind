@@ -15,13 +15,19 @@ from config import LOGS_DIR, LOG_LEVEL, LOG_FORMAT
 
 # Configure logging
 logger = logging.getLogger(__name__)
+handlers = [logging.StreamHandler()]
+try:
+    handlers.insert(
+        0,
+        logging.FileHandler(LOGS_DIR / f"rag_app_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
+    )
+except OSError:
+    pass
+
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL),
     format=LOG_FORMAT,
-    handlers=[
-        logging.FileHandler(LOGS_DIR / f"rag_app_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
-        logging.StreamHandler(),
-    ],
+    handlers=handlers,
 )
 
 

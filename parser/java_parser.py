@@ -126,6 +126,7 @@ class JavaParser:
                 method_chunks = self._extract_methods(
                     class_content,
                     class_name,
+                    file_content,
                     file_path,
                     relative_path,
                     class_start
@@ -143,6 +144,7 @@ class JavaParser:
         self,
         class_content: str,
         class_name: str,
+        file_content: str,
         file_path: str,
         relative_path: str,
         class_offset: int
@@ -153,6 +155,7 @@ class JavaParser:
         Args:
             class_content: Content of the class
             class_name: Name of the class
+            file_content: Full source file content
             file_path: Absolute path
             relative_path: Relative path
             class_offset: Offset of class in original file
@@ -171,14 +174,17 @@ class JavaParser:
                 if method_name == class_name:
                     method_name = f"<init> ({method_name})"
                 
-                method_start = method_match.start()
+                method_start = self._find_declaration_line_start(
+                    class_content,
+                    method_match.start(5)
+                )
                 method_end = self._find_method_end(class_content, method_start)
                 method_content = class_content[method_start:method_end]
                 
                 # Get line numbers relative to original file
                 file_start = class_offset + method_start
                 file_end = class_offset + method_end
-                line_numbers = self._get_line_numbers(file_path, file_start, file_end)
+                line_numbers = self._get_line_numbers(file_content, file_start, file_end)
                 
                 docstring = self._extract_javadoc_before(class_content, method_start)
                 
@@ -198,7 +204,7 @@ class JavaParser:
                 )
                 
                 # Extract method signature
-                signature = method_match.group(0)
+                signature = method_content.splitlines()[0].strip() if method_content else method_match.group(0)
                 method_chunk.add_metadata("signature", signature)
                 method_chunk.add_metadata("return_type", method_match.group(4).strip())
                 method_chunk.add_metadata("is_static", bool(method_match.group(2)))
@@ -209,6 +215,17 @@ class JavaParser:
                 self.logger.warning(f"Error extracting method: {str(e)}")
         
         return method_chunks
+    
+    def _find_declaration_line_start(self, content: str, name_start: int) -> int:
+        """
+        Find the beginning of the method declaration line.
+        
+        Regex matches may include preceding whitespace or class text because Java
+        signatures can span tokens loosely. The method name position is stable,
+        so line anchoring keeps chunk content and line numbers accurate.
+        """
+        line_start = content.rfind('\n', 0, name_start) + 1
+        return line_start
     
     def _find_class_end(self, content: str, class_start: int) -> int:
         """

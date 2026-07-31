@@ -54,10 +54,13 @@ class EmbeddingManager:
             "file_name": chunk.file_name,
             "file_path": chunk.file_path,
             "language": chunk.language,
+            "repository_name": chunk.repository_name,
+            "chunk_type": chunk.chunk_type,
             "class_name": chunk.class_name or "",
             "function_name": chunk.function_name or "",
             "start_line": int(chunk.start_line or 0),
             "end_line": int(chunk.end_line or 0),
+            "file_category": chunk.metadata.get("file_category", "source_code"),
         }
 
     def embed_chunks(self, chunks: Sequence[CodeChunk]) -> List[EmbeddedChunk]:

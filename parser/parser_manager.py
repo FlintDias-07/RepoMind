@@ -172,6 +172,12 @@ class ParserManager:
                         file_content,
                         file_meta.file_path
                     )
+
+                    for chunk in file_chunks:
+                        chunk.add_metadata("file_category", file_meta.category)
+                        chunk.add_metadata("file_extension", file_meta.extension)
+                        chunk.add_metadata("line_count", file_meta.line_count)
+                        chunk.add_metadata("size_bytes", file_meta.size_bytes)
                     
                     self.chunks.extend(file_chunks)
                     self.logger.debug(f"Parsed {file_meta.file_path}: {len(file_chunks)} chunks")

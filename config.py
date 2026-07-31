@@ -16,9 +16,11 @@ REPOSITORIES_DIR = PROJECT_ROOT / "repositories"
 VECTOR_DB_DIR = PROJECT_ROOT / "vector_db"
 DATA_DIR = PROJECT_ROOT / "data"
 LOGS_DIR = PROJECT_ROOT / "logs"
+BENCHMARKS_DIR = DATA_DIR / "benchmarks"
+EVALUATION_REPORTS_DIR = DATA_DIR / "evaluation_reports"
 
 # Create directories if they don't exist
-for directory in [REPOSITORIES_DIR, VECTOR_DB_DIR, DATA_DIR, LOGS_DIR]:
+for directory in [REPOSITORIES_DIR, VECTOR_DB_DIR, DATA_DIR, LOGS_DIR, BENCHMARKS_DIR, EVALUATION_REPORTS_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 # API Configuration
@@ -32,6 +34,13 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")  # "openai" or "groq"
 LLM_MODEL = os.getenv("LLM_MODEL", "mixtral-8x7b-32768")
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.7"))
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1200"))
+LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "2"))
+AI_CONTEXT_TOKEN_LIMIT = int(os.getenv("AI_CONTEXT_TOKEN_LIMIT", "2800"))
+AI_MEMORY_MAX_TURNS = int(os.getenv("AI_MEMORY_MAX_TURNS", "8"))
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", LLM_MODEL or "gpt-4o-mini")
+GROQ_MODEL = os.getenv("GROQ_MODEL", LLM_MODEL or "mixtral-8x7b-32768")
 
 # Embedding Configuration
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Lightweight, fast embeddings
@@ -57,7 +66,10 @@ IGNORE_DIRS = {
     "__pycache__",
     ".pytest_cache",
     ".venv",
+    ".venv311",
+    ".next",
     "virtualenv",
+    "vector_db",
     "site-packages",
     ".tox",
     ".eggs",
@@ -96,8 +108,8 @@ LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 # Streamlit Configuration
 STREAMLIT_PAGE_CONFIG = {
-    "page_title": "GitHub Repository Understanding Assistant",
-    "page_icon": "🤖",
+    "page_title": "RepoMind AI",
+    "page_icon": "RM",
     "layout": "wide",
     "initial_sidebar_state": "expanded",
 }

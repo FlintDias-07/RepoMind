@@ -1,14 +1,7 @@
-"""Vector store package for Phase 3."""
-
-from .chroma_manager import ChromaManager
-from .collection_manager import CollectionManager, CollectionStatistics
-from .vector_service import VectorService, SearchResult, IndexResult
+"""Vector store package."""
 
 __all__ = [
-    "ChromaManager",
-    "CollectionManager",
-    "CollectionStatistics",
-    "VectorService",
-    "SearchResult",
-    "IndexResult",
+    "chroma_manager",
+    "collection_manager",
+    "vector_service",
 ]

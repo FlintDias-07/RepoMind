@@ -135,6 +135,7 @@ class JavaScriptParser:
                 
                 # Extract methods from class
                 method_chunks = self._extract_methods_from_class(
+                    file_content,
                     class_content,
                     class_name,
                     file_path,
@@ -222,6 +223,7 @@ class JavaScriptParser:
     
     def _extract_methods_from_class(
         self,
+        file_content: str,
         class_content: str,
         class_name: str,
         file_path: str,
@@ -232,6 +234,7 @@ class JavaScriptParser:
         Extract methods from class
         
         Args:
+            file_content: Full source file content
             class_content: Class content
             class_name: Class name
             file_path: Absolute path
@@ -253,37 +256,40 @@ class JavaScriptParser:
         
         # Find all method-like patterns
         for match in re.finditer(r'(\w+)\s*\([^)]*\)\s*(?::\s*[\w<>,\s|\(\)]+)?\s*\{', class_body):
-            method_name = match.group(1)
-            
-            # Skip common non-method patterns
-            if method_name in ['if', 'for', 'while', 'switch', 'try', 'catch']:
-                continue
-            
-            method_start_in_body = match.start()
-            method_start = class_offset + class_body_start + method_start_in_body
-            method_end = class_offset + class_body_start + self._find_block_end(
-                class_body,
-                method_start_in_body
-            )
-            
-            method_content = file_content[method_start:method_end]
-            method_lines = self._get_line_numbers(file_path, method_start, method_end)
-            
-            method_chunk = CodeChunk(
-                chunk_id=generate_chunk_id(relative_path, "method", f"{class_name}.{method_name}"),
-                file_name=Path(file_path).name,
-                file_path=relative_path,
-                language=self.language,
-                repository_name=self.repository_name,
-                content=method_content,
-                chunk_type="method",
-                class_name=class_name,
-                function_name=method_name,
-                start_line=method_lines[0],
-                end_line=method_lines[1],
-            )
-            
-            method_chunks.append(method_chunk)
+            try:
+                method_name = match.group(1)
+                
+                # Skip common non-method patterns
+                if method_name in ['if', 'for', 'while', 'switch', 'try', 'catch']:
+                    continue
+                
+                method_start_in_body = match.start()
+                method_start = class_offset + class_body_start + method_start_in_body
+                method_end = class_offset + class_body_start + self._find_block_end(
+                    class_body,
+                    method_start_in_body
+                )
+                
+                method_content = file_content[method_start:method_end]
+                method_lines = self._get_line_numbers(file_content, method_start, method_end)
+                
+                method_chunk = CodeChunk(
+                    chunk_id=generate_chunk_id(relative_path, "method", f"{class_name}.{method_name}"),
+                    file_name=Path(file_path).name,
+                    file_path=relative_path,
+                    language=self.language,
+                    repository_name=self.repository_name,
+                    content=method_content,
+                    chunk_type="method",
+                    class_name=class_name,
+                    function_name=method_name,
+                    start_line=method_lines[0],
+                    end_line=method_lines[1],
+                )
+                
+                method_chunks.append(method_chunk)
+            except Exception as e:
+                self.logger.warning(f"Error extracting method from {class_name}: {str(e)}")
         
         return method_chunks
     

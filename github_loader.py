@@ -20,6 +20,7 @@ from utils import (
     get_repo_stats,
     save_metadata,
     RepositoryMetadata,
+    load_metadata,
 )
 
 logger = get_logger(__name__)
@@ -307,6 +308,54 @@ class RepositoryManager:
             self.logger.error(f"Error getting repositories: {str(e)}")
         
         return repos
+
+    def get_unmanaged_git_repositories(self) -> List[dict]:
+        """Return valid Git folders that are missing application metadata."""
+
+        unmanaged = []
+        try:
+            for repo_dir in self.base_path.iterdir():
+                if not repo_dir.is_dir() or not (repo_dir / ".git").exists():
+                    continue
+                if (repo_dir / ".rag_metadata.json").exists():
+                    continue
+                try:
+                    repo = Repo(str(repo_dir))
+                    unmanaged.append(
+                        {
+                            "repo_name": repo_dir.name,
+                            "local_path": str(repo_dir),
+                            "repo_url": repo.remotes.origin.url if repo.remotes else "",
+                        }
+                    )
+                except Exception as exc:
+                    self.logger.warning("Skipping invalid unmanaged repository %s: %s", repo_dir, exc)
+        except Exception as exc:
+            self.logger.error("Error discovering unmanaged repositories: %s", exc)
+        return unmanaged
+
+    def recover_repository_metadata(self, repo_name: str) -> Tuple[bool, str]:
+        """Create application metadata for a valid cloned repository."""
+
+        repo_path = self.base_path / repo_name
+        metadata_path = repo_path / ".rag_metadata.json"
+        if metadata_path.exists():
+            return True, f"{repo_name} is already managed."
+        if not (repo_path / ".git").exists():
+            return False, f"{repo_name} is not a valid Git repository."
+
+        try:
+            repo = Repo(str(repo_path))
+            repo_url = repo.remotes.origin.url if repo.remotes else ""
+            metadata = RepositoryMetadata(repo_name, repo_url, str(repo_path))
+            metadata.indexed_at = None
+            metadata.stats = get_repo_stats(str(repo_path), SUPPORTED_EXTENSIONS)
+            if save_metadata(metadata.to_dict(), str(metadata_path)):
+                return True, f"Recovered metadata for {repo_name}."
+            return False, f"Failed to save metadata for {repo_name}."
+        except Exception as exc:
+            self.logger.error("Error recovering repository metadata: %s", exc)
+            return False, f"Failed to recover metadata: {exc}"
     
     def delete_repository(self, repo_name: str) -> Tuple[bool, str]:
         """

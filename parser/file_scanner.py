@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import get_logger, is_ignored_directory, is_supported_file, get_file_extension
 from config import SUPPORTED_EXTENSIONS, IGNORE_DIRS
+from retrieval.file_classifier import FileCategory, FileClassifier
 
 logger = get_logger(__name__)
 
@@ -50,6 +51,7 @@ class FileMetadata:
     language: str
     size_bytes: int
     line_count: int = 0
+    category: str = FileCategory.SOURCE_CODE
 
 
 class FileScanner:
@@ -105,6 +107,7 @@ class FileScanner:
         self.repository_path = repo_path
         self.logger = get_logger(self.__class__.__name__)
         self.files: List[FileMetadata] = []
+        self.file_classifier = FileClassifier()
     
     def scan(self) -> List[FileMetadata]:
         """
@@ -209,6 +212,7 @@ class FileScanner:
                 language=language,
                 size_bytes=size_bytes,
                 line_count=line_count,
+                category=self.file_classifier.classify(str(relative_path)).category,
             )
             
             return metadata
@@ -224,6 +228,7 @@ class FileScanner:
                 language="unknown",
                 size_bytes=0,
                 line_count=0,
+                category=self.file_classifier.classify(str(file_path)).category,
             )
     
     def _count_lines(self, file_path: Path) -> int:

@@ -30,6 +30,18 @@ class CollectionStatistics:
     average_chunk_size: int = 0
 
 
+@dataclass
+class CollectionIntegrityReport:
+    """Integrity checks for a stored Chroma collection."""
+
+    collection_name: str
+    total_vectors: int
+    duplicate_chunk_ids: List[str] = field(default_factory=list)
+    missing_metadata_ids: List[str] = field(default_factory=list)
+    empty_document_ids: List[str] = field(default_factory=list)
+    empty_embedding_ids: List[str] = field(default_factory=list)
+
+
 class CollectionManager:
     """Wrap a Chroma collection with indexing and retrieval helpers."""
 
@@ -73,10 +85,13 @@ class CollectionManager:
         metadata.setdefault("file_name", chunk.file_name)
         metadata.setdefault("file_path", chunk.file_path)
         metadata.setdefault("language", chunk.language)
+        metadata.setdefault("repository_name", chunk.repository_name)
+        metadata.setdefault("chunk_type", chunk.chunk_type)
         metadata.setdefault("class_name", chunk.class_name or "")
         metadata.setdefault("function_name", chunk.function_name or "")
         metadata.setdefault("start_line", int(chunk.start_line or 0))
         metadata.setdefault("end_line", int(chunk.end_line or 0))
+        metadata.setdefault("file_category", chunk.metadata.get("file_category", "source_code"))
 
         return {
             "id": chunk.chunk_id,
@@ -128,15 +143,18 @@ class CollectionManager:
 
         return {"stored": len(to_store), "skipped": len(records) - len(to_store), "duplicates": duplicates}
 
-    def query(self, embedding: List[float], top_k: int = 5) -> Dict[str, Any]:
+    def query(self, embedding: List[float], top_k: int = 5, where: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Query the collection using a vector embedding."""
 
         collection = self.get_collection()
-        return collection.query(
-            query_embeddings=[embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
-        )
+        query_args = {
+            "query_embeddings": [embedding],
+            "n_results": top_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if where:
+            query_args["where"] = where
+        return collection.query(**query_args)
 
     def get_statistics(self) -> CollectionStatistics:
         """Compute statistics from the current collection contents."""
@@ -174,3 +192,61 @@ class CollectionManager:
         stats.chunks_by_language = by_language
         stats.average_chunk_size = math.floor(total_size / count) if count else 0
         return stats
+
+    def inspect_integrity(self) -> CollectionIntegrityReport:
+        """Inspect stored vectors and metadata for consistency issues."""
+
+        collection = self.get_collection()
+        count = collection.count()
+        if count == 0:
+            return CollectionIntegrityReport(
+                collection_name=self.normalized_collection_name,
+                total_vectors=0,
+            )
+
+        data = collection.get(include=["documents", "metadatas", "embeddings"])
+        ids = data.get("ids", []) or []
+        documents = data.get("documents", []) or []
+        metadatas = data.get("metadatas", []) or []
+        embeddings = data.get("embeddings", []) or []
+
+        seen_ids = set()
+        duplicate_ids: List[str] = []
+        missing_metadata_ids: List[str] = []
+        empty_document_ids: List[str] = []
+        empty_embedding_ids: List[str] = []
+
+        for chunk_id, document, metadata, embedding in zip(ids, documents, metadatas, embeddings):
+            if chunk_id in seen_ids:
+                duplicate_ids.append(chunk_id)
+            seen_ids.add(chunk_id)
+
+            if not isinstance(metadata, dict):
+                missing_metadata_ids.append(chunk_id)
+            else:
+                required_keys = {
+                    "chunk_id",
+                    "file_name",
+                    "file_path",
+                    "language",
+                    "file_category",
+                    "start_line",
+                    "end_line",
+                }
+                if not required_keys.issubset(metadata.keys()):
+                    missing_metadata_ids.append(chunk_id)
+
+            if not document or not str(document).strip():
+                empty_document_ids.append(chunk_id)
+
+            if embedding is None or len(embedding) == 0:
+                empty_embedding_ids.append(chunk_id)
+
+        return CollectionIntegrityReport(
+            collection_name=self.normalized_collection_name,
+            total_vectors=count,
+            duplicate_chunk_ids=duplicate_ids,
+            missing_metadata_ids=missing_metadata_ids,
+            empty_document_ids=empty_document_ids,
+            empty_embedding_ids=empty_embedding_ids,
+        )

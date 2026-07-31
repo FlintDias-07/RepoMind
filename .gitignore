@@ -48,6 +48,9 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
 
 # Translations
 *.mo
@@ -97,7 +100,10 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .venv
+.venv311/
 env/
 venv/
 ENV/
@@ -132,6 +138,9 @@ dmypy.json
 *.swo
 *~
 .DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
 
 # Project specific
 repositories/
@@ -144,6 +153,8 @@ logs/
 *.tmp
 *.temp
 .cache/
+tmp/
+temp/
 
 # Environment
 .env.local
