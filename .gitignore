@@ -159,3 +159,4 @@ temp/
 # Environment
 .env.local
 .env.*.local
+.streamlit/secrets.toml

@@ -4,11 +4,39 @@ Handles environment variables and application settings
 """
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file for local development.
 load_dotenv()
+
+
+def _load_streamlit_secrets() -> None:
+    """Expose Streamlit Secrets as environment variables when available."""
+
+    try:
+        import streamlit as st
+    except Exception:
+        return
+
+    try:
+        secrets = st.secrets
+        secret_items = secrets.items()
+    except Exception:
+        return
+
+    for key, value in secret_items:
+        if isinstance(value, Mapping):
+            for nested_key, nested_value in value.items():
+                if not isinstance(nested_value, (Mapping, list, tuple)):
+                    os.environ[str(nested_key)] = str(nested_value)
+            continue
+        if not isinstance(value, (list, tuple)):
+            os.environ[str(key)] = str(value)
+
+
+_load_streamlit_secrets()
 
 # Project Paths
 PROJECT_ROOT = Path(__file__).parent
