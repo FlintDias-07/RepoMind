@@ -44,6 +44,9 @@ NAV_PAGES = [
     "About",
 ]
 
+ACTIVE_PAGE_KEY = "active_page"
+NAV_WIDGET_KEY = "active_page_selector"
+
 
 INDEXING_STEPS = (
     "Repository cloned",
@@ -58,11 +61,30 @@ INDEXING_STEPS = (
 
 def navigate_to(page: str, repository_name: str | None = None) -> None:
     """Move between Streamlit pages while preserving repository context."""
-    st.session_state["active_page"] = page
+    st.session_state[ACTIVE_PAGE_KEY] = page
     if repository_name:
         st.session_state["selected_repository_name"] = repository_name
         st.session_state["repository_intelligence_active_repo"] = repository_name
     st.rerun()
+
+
+def ensure_navigation_state(state) -> None:
+    """Keep app routing state and the sidebar radio widget state separate."""
+
+    if state.get(ACTIVE_PAGE_KEY) not in NAV_PAGES:
+        state[ACTIVE_PAGE_KEY] = "Repository Intelligence"
+    if state.get(NAV_WIDGET_KEY) != state[ACTIVE_PAGE_KEY]:
+        state[NAV_WIDGET_KEY] = state[ACTIVE_PAGE_KEY]
+
+
+def apply_sidebar_navigation_choice(state, selected_page: str) -> str:
+    """Update routing state from the sidebar radio selection."""
+
+    if selected_page not in NAV_PAGES:
+        selected_page = "Repository Intelligence"
+    if state.get(ACTIVE_PAGE_KEY) != selected_page:
+        state[ACTIVE_PAGE_KEY] = selected_page
+    return selected_page
 
 
 def primary_language_from_stats(stats: dict) -> str:
@@ -85,8 +107,7 @@ def main():
         st.session_state.current_repo = None
     if "repos_list" not in st.session_state:
         st.session_state.repos_list = []
-    if "active_page" not in st.session_state or st.session_state.active_page not in NAV_PAGES:
-        st.session_state.active_page = "Repository Intelligence"
+    ensure_navigation_state(st.session_state)
     
     # Navigation sidebar
     st.sidebar.markdown("## RepoMind AI")
@@ -95,9 +116,10 @@ def main():
         "Navigation",
         NAV_PAGES,
         index=NAV_PAGES.index(st.session_state.active_page),
-        key="active_page",
+        key=NAV_WIDGET_KEY,
         help="Choose a section to work with",
     )
+    page = apply_sidebar_navigation_choice(st.session_state, page)
     st.sidebar.divider()
     st.sidebar.caption("Understand unfamiliar codebases faster with hybrid retrieval and grounded AI insights.")
     

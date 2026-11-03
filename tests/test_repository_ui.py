@@ -155,6 +155,34 @@ def test_repository_intelligence_defaults_to_fast_retrieval_mode():
     assert RETRIEVAL_MODE_OPTIONS["deep"] == "Deep Analysis"
 
 
+def test_sidebar_navigation_state_uses_separate_widget_key():
+    from app import (
+        ACTIVE_PAGE_KEY,
+        NAV_WIDGET_KEY,
+        apply_sidebar_navigation_choice,
+        ensure_navigation_state,
+    )
+
+    state = {}
+
+    ensure_navigation_state(state)
+
+    assert ACTIVE_PAGE_KEY != NAV_WIDGET_KEY
+    assert state[ACTIVE_PAGE_KEY] == "Repository Intelligence"
+    assert state[NAV_WIDGET_KEY] == "Repository Intelligence"
+
+    state[NAV_WIDGET_KEY] = "Add Repository"
+    selected = apply_sidebar_navigation_choice(state, state[NAV_WIDGET_KEY])
+
+    assert selected == "Add Repository"
+    assert state[ACTIVE_PAGE_KEY] == "Add Repository"
+
+    state[ACTIVE_PAGE_KEY] = "Index Repository"
+    ensure_navigation_state(state)
+
+    assert state[NAV_WIDGET_KEY] == "Index Repository"
+
+
 def test_custom_question_helpers_validate_indexed_state_and_stable_keys():
     indexed = {"indexed_at": "2026-07-13T14:00:00", "index_stats": {"embeddings_stored": 12}}
     not_indexed = {"indexed_at": "", "index_stats": {"embeddings_stored": 0}}
